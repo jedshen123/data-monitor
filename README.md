@@ -43,7 +43,7 @@ MCP_TOOL_NAME=execute_sql ./run_data_monitor.sh
 
 ## 常用环境变量
 
-- `MCP_URL`：MCP 地址，默认 `http://54.226.190.74:8000/mcp`
+- `MCP_URL`：MCP 地址，默认 `http://127.0.0.1:8000/mcp`
 - `DATABASE_ID`：数据库 ID，默认 `1`
 - `MCP_TOOL_NAME`：MCP SQL 工具名，默认自动发现
 - `SEND_DINGTALK`：是否推送钉钉，`true` 或 `false`，默认 `false`

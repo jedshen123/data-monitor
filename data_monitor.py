@@ -16,7 +16,7 @@ import urllib.request
 from typing import Any
 
 
-DEFAULT_MCP_URL = "http://54.226.190.74:8000/mcp"
+DEFAULT_MCP_URL = "http://127.0.0.1:8000/mcp"
 DEFAULT_DATABASE_ID = 1
 DEFAULT_DINGTALK_WEBHOOK = ""
 
