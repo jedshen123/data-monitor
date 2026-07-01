@@ -30,6 +30,22 @@ where busi_date = '{date}'
 """.strip()
 
 
+TOTAL_USER_SQL = """
+select sum(app_user_cn)
+from ads_app_core_indicator_info_di
+where busi_date = '{date}'
+""".strip()
+
+
+BIND_DEVICE_90D_SQL = """
+select
+  sum(day90_bind_device_user_cn) day90_bind_device_user_cn,
+  sum(day90_bind_device_user_app_act_cur_cn) day90_bind_device_user_app_act_cur_cn
+from ads_breast_pump_app_device_act_info_df
+where busi_date = '{date}'
+""".strip()
+
+
 EVENT_LOG_SQL = """
 select data_source, count(1)
 from dwd_tp_app_log_di
@@ -359,6 +375,29 @@ def first_number(result: Any) -> int:
     return 0
 
 
+def first_row_numbers(result: Any, keys: tuple[str, ...]) -> dict[str, int]:
+    rows = rows_from_result(result)
+    if not rows:
+        return {key: 0 for key in keys}
+
+    row = rows[0]
+    if isinstance(row, dict):
+        values: dict[str, int] = {}
+        for index, key in enumerate(keys):
+            value = first_present(row, (key, key.upper(), key.lower()))
+            if value is None:
+                numbers = numbers_from_value(row)
+                value = numbers[index] if index < len(numbers) else 0
+            values[key] = int(float(str(value).replace(",", "")))
+        return values
+
+    numbers = numbers_from_value(row)
+    return {
+        key: int(numbers[index]) if index < len(numbers) else 0
+        for index, key in enumerate(keys)
+    }
+
+
 def event_counts(result: Any) -> dict[str, int]:
     rows = rows_from_result(result)
     counts: dict[str, int] = {}
@@ -433,6 +472,12 @@ def build_report(
     previous_date: str,
     app_dau: int,
     previous_app_dau: int,
+    total_users: int,
+    previous_total_users: int,
+    day90_bind_device_users: int,
+    previous_day90_bind_device_users: int,
+    day90_bind_device_active_users: int,
+    previous_day90_bind_device_active_users: int,
     event_by_source: dict[str, int],
     previous_event_by_source: dict[str, int],
 ) -> str:
@@ -449,6 +494,20 @@ def build_report(
         (
             f"| APP日活 | 总量 | {change_text(app_dau, previous_app_dau)} | "
             f"{app_dau:,} | {previous_app_dau:,} |"
+        ),
+        (
+            f"| 总用户数 | 总量 | {change_text(total_users, previous_total_users)} | "
+            f"{total_users:,} | {previous_total_users:,} |"
+        ),
+        (
+            f"| 90天绑定设备用户数 | 总量 | "
+            f"{change_text(day90_bind_device_users, previous_day90_bind_device_users)} | "
+            f"{day90_bind_device_users:,} | {previous_day90_bind_device_users:,} |"
+        ),
+        (
+            f"| 90天绑定设备当天活跃数 | 总量 | "
+            f"{change_text(day90_bind_device_active_users, previous_day90_bind_device_active_users)} | "
+            f"{day90_bind_device_active_users:,} | {previous_day90_bind_device_active_users:,} |"
         ),
         (
             f"| 行为埋点 | 总量 | {change_text(event_total, previous_event_total)} | "
@@ -518,6 +577,16 @@ def main() -> int:
     logging.info("Start monitoring report_date=%s previous_date=%s", report_date, previous_date)
     app_dau = first_number(client.query(APP_DAU_SQL.format(date=report_date)))
     previous_app_dau = first_number(client.query(APP_DAU_SQL.format(date=previous_date)))
+    total_users = first_number(client.query(TOTAL_USER_SQL.format(date=report_date)))
+    previous_total_users = first_number(client.query(TOTAL_USER_SQL.format(date=previous_date)))
+    bind_90d = first_row_numbers(
+        client.query(BIND_DEVICE_90D_SQL.format(date=report_date)),
+        ("day90_bind_device_user_cn", "day90_bind_device_user_app_act_cur_cn"),
+    )
+    previous_bind_90d = first_row_numbers(
+        client.query(BIND_DEVICE_90D_SQL.format(date=previous_date)),
+        ("day90_bind_device_user_cn", "day90_bind_device_user_app_act_cur_cn"),
+    )
     event_by_source = event_counts(client.query(EVENT_LOG_SQL.format(date=report_date)))
     previous_event_by_source = event_counts(client.query(EVENT_LOG_SQL.format(date=previous_date)))
 
@@ -526,6 +595,14 @@ def main() -> int:
         previous_date=previous_date,
         app_dau=app_dau,
         previous_app_dau=previous_app_dau,
+        total_users=total_users,
+        previous_total_users=previous_total_users,
+        day90_bind_device_users=bind_90d["day90_bind_device_user_cn"],
+        previous_day90_bind_device_users=previous_bind_90d["day90_bind_device_user_cn"],
+        day90_bind_device_active_users=bind_90d["day90_bind_device_user_app_act_cur_cn"],
+        previous_day90_bind_device_active_users=previous_bind_90d[
+            "day90_bind_device_user_app_act_cur_cn"
+        ],
         event_by_source=event_by_source,
         previous_event_by_source=previous_event_by_source,
     )
